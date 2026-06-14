@@ -19,6 +19,32 @@ app.use(cors());
 app.use(express.json());
 app.use(todosRoutes);
 
+const allowedDomains = ['alunos.ufersa.edu.br', 'ufersa.edu.br'];
+
+app.post('/login', (req, res) => {
+  const email = String(req.body.email || '').trim().toLowerCase();
+  const password = String(req.body.password || '');
+
+  const emailParts = email.split('@');
+  const domain = emailParts.length === 2 ? emailParts[1] : '';
+
+  if (!email || emailParts.length !== 2 || !emailParts[0]) {
+    return res.status(400).json({ message: 'E-mail inválido.' });
+  }
+
+  if (!allowedDomains.includes(domain)) {
+    return res
+      .status(401)
+      .json({ message: 'Use um e-mail institucional @alunos.ufersa.edu.br ou @ufersa.edu.br.' });
+  }
+
+  if (password.length < 4) {
+    return res.status(401).json({ message: 'A senha precisa ter pelo menos 4 caracteres.' });
+  }
+
+  return res.json({ user: { email, name: emailParts[0] } });
+});
+
 app.get("/", (req, res) => {
   res.json({ message: "Backend EncontreJa rodando." });
 });

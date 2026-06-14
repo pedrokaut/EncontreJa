@@ -20,6 +20,8 @@ import garrafaVerde from './assets/items/garrafa-verde.jpg'
 import garrafaPablo from './assets/items/garrafa-pablo.jpg'
 import './App.css'
 
+const API_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3000'
+
 const baseItems = [
   {
     id: 1,
@@ -331,20 +333,40 @@ function App() {
     navigate('details')
   }
 
-  function handleLogin(event) {
+  async function handleLogin(event) {
     event.preventDefault()
     const formData = new FormData(event.currentTarget)
-    const email = String(formData.get('email')).trim()
+    const email = String(formData.get('email')).trim().toLowerCase()
     const password = String(formData.get('password')).trim()
 
     if (!email.includes('@') || password.length < 4) {
-      setNotice('E-mail ou senha incorretos. Tente novamente.')
+      setNotice('Preencha o e-mail e senha corretamente.')
       return
     }
 
-    setUser({ name: 'Pedro Victor', email })
-    setNotice('Login realizado com sucesso.')
-    navigate('home')
+    try {
+      const response = await fetch(`${API_URL}/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        setNotice(data.message || 'Falha no login. Verifique suas credenciais.')
+        return
+      }
+
+      setUser({ name: data.user.name || data.user.email.split('@')[0], email: data.user.email })
+      setNotice('Login realizado com sucesso.')
+      navigate('home')
+    } catch (error) {
+      setNotice('Erro de conexão com o servidor. Tente novamente.')
+      console.error(error)
+    }
   }
 
   function handleRegister(event, status) {
