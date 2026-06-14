@@ -1,5 +1,6 @@
 const express = require("express");
 const cors = require("cors");
+const todosRoutes = require("./todos.routes");
 const { Pool } = require("pg");
 require("dotenv").config({ path: `${__dirname}/.env` });
 
@@ -16,6 +17,7 @@ const pool = new Pool({
 
 app.use(cors());
 app.use(express.json());
+app.use(todosRoutes);
 
 app.get("/", (req, res) => {
   res.json({ message: "Backend EncontreJa rodando." });
