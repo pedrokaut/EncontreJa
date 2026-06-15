@@ -1,19 +1,11 @@
 const express = require("express");
 const cors = require("cors");
 const todosRoutes = require("./todos.routes");
-const { Pool } = require("pg");
+const { pool, initDb } = require("./db");
 require("dotenv").config({ path: `${__dirname}/.env` });
 
 const app = express();
 const port = process.env.PORT || 3000;
-
-const pool = new Pool({
-  host: process.env.DB_HOST,
-  port: Number(process.env.DB_PORT) || 5432,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME,
-});
 
 app.use(cors());
 app.use(express.json());
@@ -74,6 +66,16 @@ app.get("/db-health", async (req, res) => {
   }
 });
 
-app.listen(port, () => {
-  console.log(`Servidor rodando na porta ${port}`);
-});
+async function start() {
+  try {
+    await initDb();
+    app.listen(port, () => {
+      console.log(`Servidor rodando na porta ${port}`);
+    });
+  } catch (error) {
+    console.error("Erro ao iniciar o servidor:", error);
+    process.exit(1);
+  }
+}
+
+start();
