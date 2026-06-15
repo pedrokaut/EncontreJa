@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import logo from './assets/icon-logo.svg'
 import garrafaAzul from './assets/items/garrafa-azul.jpg'
 import foneCinza from './assets/items/fone-cinza.jpg'
@@ -19,6 +19,8 @@ import mochilaPreta from './assets/items/mochila-preta.jpg'
 import garrafaVerde from './assets/items/garrafa-verde.jpg'
 import garrafaPablo from './assets/items/garrafa-pablo.jpg'
 import './App.css'
+
+const API_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3000'
 
 const baseItems = [
   {
@@ -285,10 +287,43 @@ const emptyItemForm = {
   imageName: '',
 }
 
+function getFallbackImage(item) {
+  if (item.status === 'Encontrado' || item.status === 'Em verificação' || item.status === 'Devolvido') {
+    return foneCinza
+  }
+
+  return garrafaAzul
+}
+
+function normalizeItem(item) {
+  const status = item.status || 'Perdido'
+  const title = item.title || item.category || 'Item'
+  const details = item.details || item.description || ''
+  const date = String(item.date || item.created_at || new Date().toISOString()).slice(0, 10)
+
+  return {
+    ...item,
+    id: item.id,
+    title,
+    status,
+    category: item.category || title,
+    location: item.location || '',
+    details,
+    description: item.description || details,
+    date,
+    note: item.note || 'Agora',
+    place: item.place || (status === 'Perdido' ? item.location : undefined),
+    currentLocation: item.currentLocation || item.current_location,
+    owner: item.owner || 'Usuário',
+    contact: item.contact || 'usuario@ufersa.edu.br',
+    image: item.image || getFallbackImage({ status }),
+  }
+}
+
 function App() {
   const [route, setRoute] = useState('login')
   const [user, setUser] = useState(null)
-  const [items, setItems] = useState(baseItems)
+  const [items, setItems] = useState([])
   const [selectedItemId, setSelectedItemId] = useState(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [category, setCategory] = useState('Todos')
@@ -300,6 +335,10 @@ function App() {
   const [claims, setClaims] = useState([])
 
   const selectedItem = items.find((item) => item.id === selectedItemId) ?? items[0]
+  const availableCategories = useMemo(
+    () => ['Todos', ...new Set([...categories.slice(1), ...items.map((item) => item.category).filter(Boolean)])],
+    [items],
+  )
 
   const filteredItems = useMemo(() => {
     const query = searchTerm.trim().toLowerCase()
@@ -321,6 +360,27 @@ function App() {
     })
   }, [category, dateFilter, includeClosed, items, locationFilter, searchTerm, typeFilter])
 
+  useEffect(() => {
+    async function loadItems() {
+      try {
+        const response = await fetch(`${API_URL}/todos`)
+        const data = await response.json()
+
+        if (!response.ok) {
+          setNotice(data.message || 'Não foi possível carregar os itens.')
+          return
+        }
+
+        setItems(data.map(normalizeItem).reverse())
+      } catch (error) {
+        setNotice('Erro de conexão ao buscar os itens.')
+        console.error(error)
+      }
+    }
+
+    loadItems()
+  }, [])
+
   function navigate(nextRoute) {
     setRoute(nextRoute)
     window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -331,23 +391,61 @@ function App() {
     navigate('details')
   }
 
-  function handleLogin(event) {
+  function handleLogout() {
+    setUser(null)
+    setRoute('login')
+    setNotice('Você saiu da conta.')
+  }
+
+  useEffect(() => {
+    if (!notice) {
+      return undefined
+    }
+
+    const timer = setTimeout(() => {
+      setNotice('')
+    }, 4000)
+
+    return () => clearTimeout(timer)
+  }, [notice])
+
+  async function handleLogin(event) {
     event.preventDefault()
     const formData = new FormData(event.currentTarget)
-    const email = String(formData.get('email')).trim()
+    const email = String(formData.get('email')).trim().toLowerCase()
     const password = String(formData.get('password')).trim()
 
     if (!email.includes('@') || password.length < 4) {
-      setNotice('E-mail ou senha incorretos. Tente novamente.')
+      setNotice('Preencha o e-mail e senha corretamente.')
       return
     }
 
-    setUser({ name: 'Pedro Victor', email })
-    setNotice('Login realizado com sucesso.')
-    navigate('home')
+    try {
+      const response = await fetch(`${API_URL}/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        setNotice(data.message || 'Falha no login. Verifique suas credenciais.')
+        return
+      }
+
+      setUser({ name: data.user.name || data.user.email.split('@')[0], email: data.user.email })
+      setNotice('Login realizado com sucesso.')
+      navigate('home')
+    } catch (error) {
+      setNotice('Erro de conexão com o servidor. Tente novamente.')
+      console.error(error)
+    }
   }
 
-  function handleRegister(event, status) {
+  async function handleRegister(event, status) {
     event.preventDefault()
     const formData = new FormData(event.currentTarget)
     const payload = {
@@ -370,12 +468,12 @@ function App() {
       return
     }
 
-    const newItem = {
-      id: Date.now(),
+    const newItemPayload = {
       title: payload.category,
       status,
       category: payload.category,
       location: payload.location,
+      description: payload.description,
       details: payload.description,
       date: payload.date || today,
       note: 'Agora',
@@ -383,16 +481,36 @@ function App() {
       currentLocation: status === 'Encontrado' ? payload.currentLocation : undefined,
       owner: user?.name ?? 'Usuário',
       contact: user?.email ?? 'usuario@ufersa.edu.br',
-      image: status === 'Encontrado' ? foneCinza : garrafaAzul,
     }
 
-    setItems((current) => [newItem, ...current])
-    setSelectedItemId(newItem.id)
-    setNotice('Item registrado com sucesso.')
-    navigate('matches')
+    try {
+      const response = await fetch(`${API_URL}/todos`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(newItemPayload),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        setNotice(data.message || 'Não foi possível registrar o item.')
+        return
+      }
+
+      const createdItem = normalizeItem({ ...newItemPayload, ...(Array.isArray(data) ? data[data.length - 1] : data) })
+      setItems((current) => [createdItem, ...current])
+      setSelectedItemId(createdItem.id)
+      setNotice('Item registrado com sucesso.')
+      navigate('matches')
+    } catch (error) {
+      setNotice('Erro de conexão ao registrar o item.')
+      console.error(error)
+    }
   }
 
-  function handleClaim(event) {
+  async function handleClaim(event) {
     event.preventDefault()
     const formData = new FormData(event.currentTarget)
     const confirmation = String(formData.get('confirmation')).trim()
@@ -406,6 +524,27 @@ function App() {
       setNotice('Este item já possui uma reivindicação ativa.')
       return
     }
+
+    try {
+      const response = await fetch(`${API_URL}/todos/${selectedItem.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          title: selectedItem.title,
+          description: selectedItem.details,
+          location: selectedItem.location,
+          status: 'Em verificação',
+        }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        setNotice(data.message || 'Não foi possível registrar a reivindicação.')
+        return
+      }
 
     setClaims((current) => [
       ...current,
@@ -424,9 +563,41 @@ function App() {
     )
     setNotice(`Reivindicação registrada. Contato: ${selectedItem.contact}`)
     navigate('details')
+    } catch (error) {
+      setNotice('Erro de conexão ao registrar a reivindicação.')
+      console.error(error)
+    }
   }
 
-  function confirmReturn(itemId) {
+  async function confirmReturn(itemId) {
+    const itemToUpdate = items.find((item) => item.id === itemId)
+
+    if (!itemToUpdate) {
+      setNotice('Item não encontrado.')
+      return
+    }
+
+    try {
+      const response = await fetch(`${API_URL}/todos/${itemId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          title: itemToUpdate.title,
+          description: itemToUpdate.details,
+          location: itemToUpdate.location,
+          status: 'Devolvido',
+        }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        setNotice(data.message || 'Não foi possível confirmar a devolução.')
+        return
+      }
+
     setItems((current) =>
       current.map((item) => (item.id === itemId ? { ...item, status: 'Devolvido' } : item)),
     )
@@ -434,6 +605,37 @@ function App() {
       current.map((claim) => (claim.itemId === itemId ? { ...claim, active: false } : claim)),
     )
     setNotice('Devolução confirmada. Obrigado por usar o EncontreJá!')
+    } catch (error) {
+      setNotice('Erro de conexão ao confirmar a devolução.')
+      console.error(error)
+    }
+  }
+
+  async function removeItem(itemId) {
+    try {
+      const response = await fetch(`${API_URL}/todos/${itemId}`, {
+        method: 'DELETE',
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        setNotice(data.message || 'Não foi possível remover o item.')
+        return
+      }
+
+      setItems((current) => current.filter((item) => item.id !== itemId))
+      setClaims((current) => current.filter((claim) => claim.itemId !== itemId))
+      setNotice(data.message || 'Item removido com sucesso.')
+
+      if (selectedItemId === itemId) {
+        setSelectedItemId(null)
+        navigate('home')
+      }
+    } catch (error) {
+      setNotice('Erro de conexão ao remover o item.')
+      console.error(error)
+    }
   }
 
   return (
@@ -444,10 +646,12 @@ function App() {
 
       {route === 'login' && <LoginScreen onSubmit={handleLogin} navigate={navigate} />}
 
+      {route === 'profile' && <ProfileScreen user={user} navigate={navigate} onLogout={handleLogout} />}
+
       {route === 'home' && (
         <HomeScreen
           category={category}
-          categories={categories}
+          categories={availableCategories}
           dateFilter={dateFilter}
           filteredItems={filteredItems}
           includeClosed={includeClosed}
@@ -501,6 +705,7 @@ function App() {
           navigate={navigate}
           openItem={openItem}
           confirmReturn={confirmReturn}
+          removeItem={removeItem}
         />
       )}
 
@@ -540,7 +745,7 @@ function Header({ route, user, navigate }) {
             <button type="button" className="icon-button" aria-label="Notificações" onClick={() => navigate('my-items')}>
               <span className="heart-icon" />
             </button>
-            <button type="button" className="icon-button" aria-label="Perfil" onClick={() => navigate('my-items')}>
+            <button type="button" className="icon-button" aria-label="Perfil" onClick={() => navigate('profile')}>
               <span className="user-icon" />
             </button>
           </>
@@ -551,6 +756,36 @@ function Header({ route, user, navigate }) {
         )}
       </nav>
     </header>
+  )
+}
+
+function ProfileScreen({ user, navigate, onLogout }) {
+  return (
+    <main className="auth-page">
+      <section className="auth-hero">
+        <div>
+          <p className="eyebrow">Perfil</p>
+          <h1>Olá, {user?.name || 'usuário'}!</h1>
+          <p>Gerencie sua conta e acompanhe suas atividades no EncontreJá.</p>
+        </div>
+      </section>
+
+      <section className="form-card auth-card">
+        <h2>Meu Perfil</h2>
+        <div className="stack-form">
+          <p><strong>Nome:</strong> {user?.name || 'Não informado'}</p>
+          <p><strong>E-mail:</strong> {user?.email || 'Não informado'}</p>
+          <div className="profile-actions">
+            <button type="button" className="secondary-button compact" onClick={() => navigate('home')}>
+              Voltar para o início
+            </button>
+            <button type="button" className="primary-button compact" onClick={onLogout}>
+              Sair da conta
+            </button>
+          </div>
+        </div>
+      </section>
+    </main>
   )
 }
 
@@ -908,7 +1143,7 @@ function MatchesScreen({ item, items, navigate, openItem }) {
   )
 }
 
-function MyItemsScreen({ claims, items, user, navigate, openItem, confirmReturn }) {
+function MyItemsScreen({ claims, items, user, navigate, openItem, confirmReturn, removeItem }) {
   const myItems = items.filter((item) => item.contact === user?.email || item.owner === user?.name)
   const activeClaims = claims.filter((claim) => claim.active)
 
@@ -952,13 +1187,18 @@ function MyItemsScreen({ claims, items, user, navigate, openItem, confirmReturn 
           <h3>Itens cadastrados por você</h3>
           <div className="mini-list">
             {myItems.map((item) => (
-              <button key={item.id} type="button" onClick={() => openItem(item)}>
-                <img src={item.image} alt="" />
-                <span>
-                  <strong>{item.title}</strong>
-                  <small>{item.status}</small>
-                </span>
-              </button>
+              <div className="mini-list-row" key={item.id}>
+                <button type="button" onClick={() => openItem(item)}>
+                  <img src={item.image} alt="" />
+                  <span>
+                    <strong>{item.title}</strong>
+                    <small>{item.status}</small>
+                  </span>
+                </button>
+                <button type="button" className="secondary-button compact" onClick={() => removeItem(item.id)}>
+                  Remover
+                </button>
+              </div>
             ))}
           </div>
         </div>
