@@ -2,6 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const express = require('express');
 const todosRoutes = require('./todos.routes');
+const { initDb, pool } = require('./db');
 
 async function startApp() {
   const app = express();
@@ -18,7 +19,9 @@ async function startApp() {
 }
 
 test('CRUD de itens funciona com as rotas', async () => {
+  await initDb();
   const { server, baseUrl } = await startApp();
+  let createdItemId;
 
   try {
     const createResponse = await fetch(`${baseUrl}/todos`, {
@@ -33,9 +36,8 @@ test('CRUD de itens funciona com as rotas', async () => {
     });
 
     assert.equal(createResponse.status, 201);
-    const created = await createResponse.json();
-    assert.ok(Array.isArray(created));
-    const item = created[created.length - 1];
+    const item = await createResponse.json();
+    createdItemId = item.id;
     assert.equal(item.title, 'Notebook');
 
     const updateResponse = await fetch(`${baseUrl}/todos/${item.id}`, {
@@ -66,6 +68,9 @@ test('CRUD de itens funciona com as rotas', async () => {
     const list = await listResponse.json();
     assert.ok(!list.some((entry) => entry.id === item.id));
   } finally {
+    if (createdItemId) {
+      await pool.query('DELETE FROM items WHERE id = $1', [createdItemId]);
+    }
     await new Promise((resolve) => server.close(resolve));
   }
 });

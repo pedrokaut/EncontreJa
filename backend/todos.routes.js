@@ -1,62 +1,176 @@
 const express = require("express");
+const { pool } = require("./db");
 
-
-const allItems = [];
 const todosRoutes = express.Router();
-const { Pool } = require("pg");
-// C
-todosRoutes.post("/todos", (request, response) => {
-  const { title, description, location, status } = request.body
-  const item = {
-    id: Date.now(),
+
+function mapItem(row) {
+  return {
+    id: row.id,
+    title: row.title,
+    description: row.description,
+    details: row.description,
+    category: row.category,
+    location: row.location,
+    status: row.status,
+    date: row.date,
+    place: row.place,
+    currentLocation: row.current_location,
+    owner: row.owner,
+    contact: row.contact,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+  };
+}
+
+todosRoutes.post("/todos", async (request, response) => {
+  const {
     title,
     description,
+    details,
+    category,
     location,
     status,
-    created_at: new Date()
+    date,
+    place,
+    currentLocation,
+    owner,
+    contact,
+  } = request.body;
+
+  if (!title || !location || !status) {
+    return response.status(400).json({
+      message: "Titulo, localizacao e status sao obrigatorios.",
+    });
   }
 
-  allItems.push(item)
-  response.status(201).json(allItems)
-})
-// R
-todosRoutes.get("/todos", (request, response) => {
-  return response.json(allItems)
-})
+  try {
+    const result = await pool.query(
+      `
+        INSERT INTO items (
+          title,
+          description,
+          category,
+          location,
+          status,
+          date,
+          place,
+          current_location,
+          owner,
+          contact
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        RETURNING *
+      `,
+      [
+        title,
+        description || details || "",
+        category || title,
+        location,
+        status,
+        date || null,
+        place || null,
+        currentLocation || null,
+        owner || null,
+        contact || null,
+      ],
+    );
 
-// U
-todosRoutes.put("/todos/:id", (request, response) => {
-  const { id } = request.params;
-  const { title, description, location, status } = request.body;
-
-  const index = allItems.findIndex((item) => String(item.id) === String(id));
-
-  if (index === -1) {
-    return response.status(404).json({ message: "Item não encontrado." });
+    return response.status(201).json(mapItem(result.rows[0]));
+  } catch (error) {
+    console.error("Erro ao criar item:", error);
+    return response.status(500).json({ message: "Nao foi possivel criar o item." });
   }
-
-  allItems[index] = {
-    ...allItems[index],
-    title: title ?? allItems[index].title,
-    description: description ?? allItems[index].description,
-    location: location ?? allItems[index].location,
-    status: status ?? allItems[index].status,
-    updated_at: new Date().toISOString(),
-  };
-
-  return response.json(allItems[index]);
 });
 
-// D
-todosRoutes.delete("/todos/:id", (request, response) => {
-  const { id } = request.params;
-  const index = allItems.findIndex((item) => String(item.id) === String(id));
-
-  if (index === -1) {
-    return response.status(404).json({ message: "Item não encontrado." });
+todosRoutes.get("/todos", async (_request, response) => {
+  try {
+    const result = await pool.query("SELECT * FROM items ORDER BY created_at DESC, id DESC");
+    return response.json(result.rows.map(mapItem));
+  } catch (error) {
+    console.error("Erro ao listar itens:", error);
+    return response.status(500).json({ message: "Nao foi possivel listar os itens." });
   }
-
-  allItems.splice(index, 1);
-  return response.json({ message: "Item removido com sucesso." });
 });
+
+todosRoutes.put("/todos/:id", async (request, response) => {
+  const { id } = request.params;
+  const {
+    title,
+    description,
+    details,
+    category,
+    location,
+    status,
+    date,
+    place,
+    currentLocation,
+    owner,
+    contact,
+  } = request.body;
+
+  try {
+    const current = await pool.query("SELECT * FROM items WHERE id = $1", [id]);
+
+    if (current.rowCount === 0) {
+      return response.status(404).json({ message: "Item nao encontrado." });
+    }
+
+    const item = current.rows[0];
+    const result = await pool.query(
+      `
+        UPDATE items
+        SET
+          title = $1,
+          description = $2,
+          category = $3,
+          location = $4,
+          status = $5,
+          date = $6,
+          place = $7,
+          current_location = $8,
+          owner = $9,
+          contact = $10,
+          updated_at = NOW()
+        WHERE id = $11
+        RETURNING *
+      `,
+      [
+        title ?? item.title,
+        description ?? details ?? item.description,
+        category ?? item.category,
+        location ?? item.location,
+        status ?? item.status,
+        date ?? item.date,
+        place ?? item.place,
+        currentLocation ?? item.current_location,
+        owner ?? item.owner,
+        contact ?? item.contact,
+        id,
+      ],
+    );
+
+    return response.json(mapItem(result.rows[0]));
+  } catch (error) {
+    console.error("Erro ao atualizar item:", error);
+    return response.status(500).json({ message: "Nao foi possivel atualizar o item." });
+  }
+});
+
+todosRoutes.delete("/todos/:id", async (request, response) => {
+  const { id } = request.params;
+
+  try {
+    const result = await pool.query("DELETE FROM items WHERE id = $1 RETURNING id", [id]);
+
+    if (result.rowCount === 0) {
+      return response.status(404).json({ message: "Item nao encontrado." });
+    }
+
+    return response.json({ message: "Item removido com sucesso." });
+  } catch (error) {
+    console.error("Erro ao remover item:", error);
+    return response.status(500).json({ message: "Nao foi possivel remover o item." });
+  }
+});
+
 module.exports = todosRoutes;
