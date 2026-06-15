@@ -830,6 +830,12 @@
   gap: 12px;
 }
 
+.mini-list-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .mini-list button {
   display: flex;
   align-items: center;
@@ -840,6 +846,15 @@
   cursor: pointer;
   padding: 10px;
   text-align: left;
+}
+
+.mini-list-row > button:first-child {
+  flex: 1;
+}
+
+.mini-list-row > .secondary-button {
+  justify-content: center;
+  text-align: center;
 }
 
 .mini-list img {
