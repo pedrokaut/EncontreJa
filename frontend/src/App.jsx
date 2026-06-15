@@ -391,6 +391,24 @@ function App() {
     navigate('details')
   }
 
+  function handleLogout() {
+    setUser(null)
+    setRoute('login')
+    setNotice('Você saiu da conta.')
+  }
+
+  useEffect(() => {
+    if (!notice) {
+      return undefined
+    }
+
+    const timer = setTimeout(() => {
+      setNotice('')
+    }, 4000)
+
+    return () => clearTimeout(timer)
+  }, [notice])
+
   async function handleLogin(event) {
     event.preventDefault()
     const formData = new FormData(event.currentTarget)
@@ -628,7 +646,7 @@ function App() {
 
       {route === 'login' && <LoginScreen onSubmit={handleLogin} navigate={navigate} />}
 
-      {route === 'profile' && <ProfileScreen user={user} navigate={navigate} />}
+      {route === 'profile' && <ProfileScreen user={user} navigate={navigate} onLogout={handleLogout} />}
 
       {route === 'home' && (
         <HomeScreen
@@ -741,7 +759,7 @@ function Header({ route, user, navigate }) {
   )
 }
 
-function ProfileScreen({ user, navigate }) {
+function ProfileScreen({ user, navigate, onLogout }) {
   return (
     <main className="auth-page">
       <section className="auth-hero">
@@ -757,9 +775,14 @@ function ProfileScreen({ user, navigate }) {
         <div className="stack-form">
           <p><strong>Nome:</strong> {user?.name || 'Não informado'}</p>
           <p><strong>E-mail:</strong> {user?.email || 'Não informado'}</p>
-          <button type="button" className="primary-button compact" onClick={() => navigate('home')}>
-            Voltar para o início
-          </button>
+          <div className="profile-actions">
+            <button type="button" className="secondary-button compact" onClick={() => navigate('home')}>
+              Voltar para o início
+            </button>
+            <button type="button" className="primary-button compact" onClick={onLogout}>
+              Sair da conta
+            </button>
+          </div>
         </div>
       </section>
     </main>
