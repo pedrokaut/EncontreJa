@@ -466,6 +466,8 @@ function App() {
 
       {route === 'login' && <LoginScreen onSubmit={handleLogin} navigate={navigate} />}
 
+      {route === 'profile' && <ProfileScreen user={user} navigate={navigate} />}
+
       {route === 'home' && (
         <HomeScreen
           category={category}
@@ -562,7 +564,7 @@ function Header({ route, user, navigate }) {
             <button type="button" className="icon-button" aria-label="Notificações" onClick={() => navigate('my-items')}>
               <span className="heart-icon" />
             </button>
-            <button type="button" className="icon-button" aria-label="Perfil" onClick={() => navigate('my-items')}>
+            <button type="button" className="icon-button" aria-label="Perfil" onClick={() => navigate('profile')}>
               <span className="user-icon" />
             </button>
           </>
@@ -573,6 +575,31 @@ function Header({ route, user, navigate }) {
         )}
       </nav>
     </header>
+  )
+}
+
+function ProfileScreen({ user, navigate }) {
+  return (
+    <main className="auth-page">
+      <section className="auth-hero">
+        <div>
+          <p className="eyebrow">Perfil</p>
+          <h1>Olá, {user?.name || 'usuário'}!</h1>
+          <p>Gerencie sua conta e acompanhe suas atividades no EncontreJá.</p>
+        </div>
+      </section>
+
+      <section className="form-card auth-card">
+        <h2>Meu Perfil</h2>
+        <div className="stack-form">
+          <p><strong>Nome:</strong> {user?.name || 'Não informado'}</p>
+          <p><strong>E-mail:</strong> {user?.email || 'Não informado'}</p>
+          <button type="button" className="primary-button compact" onClick={() => navigate('home')}>
+            Voltar para o início
+          </button>
+        </div>
+      </section>
+    </main>
   )
 }
 
