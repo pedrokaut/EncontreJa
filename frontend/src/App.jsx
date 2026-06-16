@@ -791,9 +791,6 @@ function Header({ route, user, navigate }) {
             <button type="button" onClick={() => navigate('register-lost')}>
               Perdido
             </button>
-            <button type="button" className="icon-button" aria-label="Notificações" onClick={() => navigate('my-items')}>
-              <span className="heart-icon" />
-            </button>
             <button type="button" className="icon-button" aria-label="Perfil" onClick={() => navigate('profile')}>
               <span className="user-icon" />
             </button>
