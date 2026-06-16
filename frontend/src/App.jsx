@@ -295,11 +295,44 @@ function getFallbackImage(item) {
   return garrafaAzul
 }
 
+function formatRegisteredAt(value) {
+  if (!value) {
+    return ''
+  }
+
+  const parsedDate = new Date(value)
+
+  if (Number.isNaN(parsedDate.getTime())) {
+    return ''
+  }
+
+  return new Intl.DateTimeFormat('pt-BR', {
+    dateStyle: 'short',
+    timeStyle: 'short',
+  }).format(parsedDate)
+}
+
+function formatDateOnly(value) {
+  if (!value) {
+    return ''
+  }
+
+  const [year, month, day] = String(value).slice(0, 10).split('-')
+
+  if (!year || !month || !day) {
+    return String(value)
+  }
+
+  return `${day}/${month}/${year}`
+}
+
 function normalizeItem(item) {
   const status = item.status || 'Perdido'
   const title = item.title || item.category || 'Item'
   const details = item.details || item.description || ''
   const date = String(item.date || item.created_at || new Date().toISOString()).slice(0, 10)
+  const registeredAt = formatRegisteredAt(item.created_at) || formatDateOnly(date)
+  const note = item.note && item.note !== 'Agora' ? item.note : registeredAt
 
   return {
     ...item,
@@ -311,7 +344,8 @@ function normalizeItem(item) {
     details,
     description: item.description || details,
     date,
-    note: item.note || 'Agora',
+    note,
+    registeredAt,
     place: item.place || (status === 'Perdido' ? item.location : undefined),
     currentLocation: item.currentLocation || item.current_location,
     owner: item.owner || 'Usuário',
@@ -476,7 +510,6 @@ function App() {
       description: payload.description,
       details: payload.description,
       date: payload.date || today,
-      note: 'Agora',
       place: status === 'Perdido' ? payload.location : undefined,
       currentLocation: status === 'Encontrado' ? payload.currentLocation : undefined,
       owner: user?.name ?? 'Usuário',
@@ -1047,6 +1080,11 @@ function RegisterItemScreen({ kind, title, subtitle, onSubmit, navigate }) {
 
 function DetailsScreen({ item, navigate, onClaim }) {
   const canClaim = item.status === 'Encontrado'
+  const [showContact, setShowContact] = useState(false)
+  const contactSubject = encodeURIComponent(`Contato sobre ${item.title} - EncontreJa`)
+  const contactBody = encodeURIComponent(
+    `Ola, ${item.owner}. Vi seu cadastro do item "${item.title}" no EncontreJa e gostaria de conversar sobre ele.`,
+  )
 
   return (
     <main className="detail-page">
@@ -1068,7 +1106,11 @@ function DetailsScreen({ item, navigate, onClaim }) {
             </div>
             <div>
               <dt>Data</dt>
-              <dd>{item.note}</dd>
+              <dd>{item.registeredAt || item.note}</dd>
+            </div>
+            <div>
+              <dt>Registrado por</dt>
+              <dd>{item.owner}</dd>
             </div>
             <div>
               <dt>Contato</dt>
@@ -1081,6 +1123,30 @@ function DetailsScreen({ item, navigate, onClaim }) {
               </div>
             )}
           </dl>
+
+          <div className="contact-box">
+            <button
+              type="button"
+              className="primary-button compact"
+              onClick={() => setShowContact((current) => !current)}
+            >
+              Entrar em contato
+            </button>
+
+            {showContact && (
+              <div className="contact-details">
+                <p><strong>Nome:</strong> {item.owner}</p>
+                <p><strong>E-mail:</strong> {item.contact}</p>
+                <p><strong>Item:</strong> {item.title}</p>
+                <p><strong>Status:</strong> {item.status}</p>
+                <p><strong>Local:</strong> {item.location}</p>
+                <p><strong>Registrado em:</strong> {item.registeredAt || item.note}</p>
+                <a className="secondary-button contact-link" href={`mailto:${item.contact}?subject=${contactSubject}&body=${contactBody}`}>
+                  Enviar e-mail
+                </a>
+              </div>
+            )}
+          </div>
 
           {canClaim ? (
             <form className="claim-box" onSubmit={onClaim}>
