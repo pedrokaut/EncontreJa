@@ -23,6 +23,24 @@ async function initDb() {
       current_location TEXT,
       owner TEXT,
       contact TEXT,
+      image_url TEXT,
+      created_at TIMESTAMP DEFAULT NOW(),
+      updated_at TIMESTAMP DEFAULT NOW()
+    );
+  `);
+
+  await pool.query(`
+    ALTER TABLE items
+    ADD COLUMN IF NOT EXISTS image_url TEXT;
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS claims (
+      id SERIAL PRIMARY KEY,
+      item_id INTEGER NOT NULL REFERENCES items(id) ON DELETE CASCADE,
+      requester TEXT,
+      confirmation TEXT NOT NULL,
+      active BOOLEAN DEFAULT TRUE,
       created_at TIMESTAMP DEFAULT NOW(),
       updated_at TIMESTAMP DEFAULT NOW()
     );
