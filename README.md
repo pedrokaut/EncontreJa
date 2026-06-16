@@ -1,3 +1,14 @@
+<p align="center">
+  <img width="100px" src="https://assecom.ufersa.edu.br/wp-content/uploads/sites/24/2014/09/PNG-bras%C3%A3o-Ufersa.png" alt="Brasão da Ufersa" />
+</p>
+
+<h1 align="center">EncontreJá</h1>
+<p align="center"><b>Projeto da Disciplina de Engenharia de Software</b></p>
+
+<div align="center">
+
+</div>
+
 # EncontreJá
 
 ## i. Objetivo do Sistema
@@ -129,11 +140,19 @@ npm run dev
 npm run build
 ```
 
-### 4. Acessar a aplicação
+### 4. Iniciar banco de dados
+
+```bash
+psql -U postgres -h localhost
+```
+
+Senha do branco: 123
+
+### 5. Acessar a aplicação
 - Frontend: `http://localhost:5173`
 - Backend API: `http://localhost:3000`
 
-### 5. Executar testes
+### 6. Executar testes
 ```bash
 cd backend
 npm test
@@ -143,16 +162,16 @@ npm test
 
 ## vii. Link do Protótipo
 
-[Acesse o protótipo do Figma aqui](https://www.figma.com/design/seu-projeto-figma)
+[Acesse o protótipo do Figma aqui](https://www.figma.com/design/x38bFOsqX00iZJEL8lg2tC/Encontrej%C3%A1-web?node-id=0-1&t=uhsrFxVfXe2Wmo2r-1)
 
-*Nota: Atualize com o link correto do seu protótipo de design*
 
 ---
 
 ## viii. Integrantes da Equipe
 
 - **Jennefhy Saiury** - Desenvolvimento Full Stack
-- *(Adicione outros membros da equipe conforme necessário)*
+- **Pedro Soares** - Desenvolvimento Full Stack
+- **Pablo Ryan** - Desenvolvimento Full Stack
 
 ---
 
@@ -171,7 +190,6 @@ npm test
 
 ### 🔄 Em Desenvolvimento
 - [ ] Integração com sistema de notificações
-- [ ] Upload de imagens melhorado
 - [ ] Mapa de localização interativo
 - [ ] Relatórios de recuperação
 
@@ -193,10 +211,17 @@ npm test
 
 ---
 
+## 🧑‍💻 Desenvolvedores
+
+<div align="center">
+
+| <img src="https://avatars.githubusercontent.com/u/115113727?v=4" width="115"><br><sub><b>Jennefhy Saiury de Lima Pontes</b><br>2024010522</sub> | <img src="https://avatars.githubusercontent.com/u/171264485?v=4" width="115"><br><sub><b>Pedro Victor Soares Gonçalo</b><br>2024010454</sub> | <img src="https://avatars.githubusercontent.com/u/186582235?v=4" width="115"><br><sub><b>Pablo Ryan Lopes Vieira</b><br>2024010361</sub> |
+|:---:|:---:|:---:|
+| [GitHub](https://github.com/jennefhy) | [GitHub](https://github.com/pedrokaut) | [GitHub](https://github.com/Ryan-loyer) |
+
+</div>
+
+
 ## Licença
 
 Este projeto está sob a licença MIT. Veja o arquivo [LICENSE](./LICENSE) para mais detalhes.
-
----
-
-**Desenvolvido com ❤️ para a comunidade UFERSA**
