@@ -284,7 +284,6 @@ const emptyItemForm = {
   location: '',
   date: '',
   currentLocation: 'Comigo',
-  imageName: '',
 }
 
 function getFallbackImage(item) {
@@ -350,7 +349,7 @@ function normalizeItem(item) {
     currentLocation: item.currentLocation || item.current_location,
     owner: item.owner || 'Usuário',
     contact: item.contact || 'usuario@ufersa.edu.br',
-    image: item.image || getFallbackImage({ status }),
+    image: item.image || item.imageUrl || getFallbackImage({ status }),
   }
 }
 
@@ -488,7 +487,7 @@ function App() {
       location: String(formData.get('location')).trim(),
       date: String(formData.get('date')).trim(),
       currentLocation: String(formData.get('currentLocation') || 'Comigo'),
-      imageName: String(formData.get('imageName')).trim(),
+      imageFile: formData.get('imageName'),
     }
 
     if (!payload.category || !payload.description || !payload.location) {
@@ -500,6 +499,22 @@ function App() {
     if (payload.date && payload.date > today) {
       setNotice('A data informada não pode ser uma data futura.')
       return
+    }
+
+    let imageUrl = null
+    if (payload.imageFile && payload.imageFile instanceof File) {
+      try {
+        imageUrl = await new Promise((resolve, reject) => {
+          const reader = new FileReader()
+          reader.onload = () => resolve(reader.result)
+          reader.onerror = reject
+          reader.readAsDataURL(payload.imageFile)
+        })
+      } catch (error) {
+        setNotice('Erro ao processar a imagem.')
+        console.error(error)
+        return
+      }
     }
 
     const newItemPayload = {
@@ -514,6 +529,7 @@ function App() {
       currentLocation: status === 'Encontrado' ? payload.currentLocation : undefined,
       owner: user?.name ?? 'Usuário',
       contact: user?.email ?? 'usuario@ufersa.edu.br',
+      imageUrl,
     }
 
     try {
