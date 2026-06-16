@@ -284,7 +284,6 @@ const emptyItemForm = {
   location: '',
   date: '',
   currentLocation: 'Comigo',
-  imageName: '',
 }
 
 function getFallbackImage(item) {
@@ -295,11 +294,44 @@ function getFallbackImage(item) {
   return garrafaAzul
 }
 
+function formatRegisteredAt(value) {
+  if (!value) {
+    return ''
+  }
+
+  const parsedDate = new Date(value)
+
+  if (Number.isNaN(parsedDate.getTime())) {
+    return ''
+  }
+
+  return new Intl.DateTimeFormat('pt-BR', {
+    dateStyle: 'short',
+    timeStyle: 'short',
+  }).format(parsedDate)
+}
+
+function formatDateOnly(value) {
+  if (!value) {
+    return ''
+  }
+
+  const [year, month, day] = String(value).slice(0, 10).split('-')
+
+  if (!year || !month || !day) {
+    return String(value)
+  }
+
+  return `${day}/${month}/${year}`
+}
+
 function normalizeItem(item) {
   const status = item.status || 'Perdido'
   const title = item.title || item.category || 'Item'
   const details = item.details || item.description || ''
   const date = String(item.date || item.created_at || new Date().toISOString()).slice(0, 10)
+  const registeredAt = formatRegisteredAt(item.created_at) || formatDateOnly(date)
+  const note = item.note && item.note !== 'Agora' ? item.note : registeredAt
 
   return {
     ...item,
@@ -311,12 +343,13 @@ function normalizeItem(item) {
     details,
     description: item.description || details,
     date,
-    note: item.note || 'Agora',
+    note,
+    registeredAt,
     place: item.place || (status === 'Perdido' ? item.location : undefined),
     currentLocation: item.currentLocation || item.current_location,
     owner: item.owner || 'Usuário',
     contact: item.contact || 'usuario@ufersa.edu.br',
-    image: item.image || getFallbackImage({ status }),
+    image: item.image || item.imageUrl || getFallbackImage({ status }),
   }
 }
 
@@ -454,7 +487,7 @@ function App() {
       location: String(formData.get('location')).trim(),
       date: String(formData.get('date')).trim(),
       currentLocation: String(formData.get('currentLocation') || 'Comigo'),
-      imageName: String(formData.get('imageName')).trim(),
+      imageFile: formData.get('imageName'),
     }
 
     if (!payload.category || !payload.description || !payload.location) {
@@ -468,6 +501,22 @@ function App() {
       return
     }
 
+    let imageUrl = null
+    if (payload.imageFile && payload.imageFile instanceof File) {
+      try {
+        imageUrl = await new Promise((resolve, reject) => {
+          const reader = new FileReader()
+          reader.onload = () => resolve(reader.result)
+          reader.onerror = reject
+          reader.readAsDataURL(payload.imageFile)
+        })
+      } catch (error) {
+        setNotice('Erro ao processar a imagem.')
+        console.error(error)
+        return
+      }
+    }
+
     const newItemPayload = {
       title: payload.category,
       status,
@@ -476,11 +525,11 @@ function App() {
       description: payload.description,
       details: payload.description,
       date: payload.date || today,
-      note: 'Agora',
       place: status === 'Perdido' ? payload.location : undefined,
       currentLocation: status === 'Encontrado' ? payload.currentLocation : undefined,
       owner: user?.name ?? 'Usuário',
       contact: user?.email ?? 'usuario@ufersa.edu.br',
+      imageUrl,
     }
 
     try {
@@ -730,20 +779,14 @@ function Header({ route, user, navigate }) {
             <button className={route === 'home' ? 'active' : ''} type="button" onClick={() => navigate('home')}>
               Início
             </button>
-            <button type="button" onClick={() => navigate('home')}>
-              Anúncios
-            </button>
-            <button type="button" onClick={() => navigate('my-items')}>
+            <button className={route === 'my-items' ? 'active' : ''} type="button" onClick={() => navigate('my-items')}>
               Meus Itens
             </button>
-            <button type="button" onClick={() => navigate('register-found')}>
+            <button className={route === 'register-found' ? 'active' : ''} type="button" onClick={() => navigate('register-found')}>
               Encontrado
             </button>
-            <button type="button" onClick={() => navigate('register-lost')}>
+            <button className={route === 'register-lost' ? 'active' : ''} type="button" onClick={() => navigate('register-lost')}>
               Perdido
-            </button>
-            <button type="button" className="icon-button" aria-label="Notificações" onClick={() => navigate('my-items')}>
-              <span className="heart-icon" />
             </button>
             <button type="button" className="icon-button" aria-label="Perfil" onClick={() => navigate('profile')}>
               <span className="user-icon" />
@@ -1047,6 +1090,11 @@ function RegisterItemScreen({ kind, title, subtitle, onSubmit, navigate }) {
 
 function DetailsScreen({ item, navigate, onClaim }) {
   const canClaim = item.status === 'Encontrado'
+  const [showContact, setShowContact] = useState(false)
+  const contactSubject = encodeURIComponent(`Contato sobre ${item.title} - EncontreJa`)
+  const contactBody = encodeURIComponent(
+    `Ola, ${item.owner}. Vi seu cadastro do item "${item.title}" no EncontreJa e gostaria de conversar sobre ele.`,
+  )
 
   return (
     <main className="detail-page">
@@ -1068,7 +1116,11 @@ function DetailsScreen({ item, navigate, onClaim }) {
             </div>
             <div>
               <dt>Data</dt>
-              <dd>{item.note}</dd>
+              <dd>{item.registeredAt || item.note}</dd>
+            </div>
+            <div>
+              <dt>Registrado por</dt>
+              <dd>{item.owner}</dd>
             </div>
             <div>
               <dt>Contato</dt>
@@ -1081,6 +1133,30 @@ function DetailsScreen({ item, navigate, onClaim }) {
               </div>
             )}
           </dl>
+
+          <div className="contact-box">
+            <button
+              type="button"
+              className="primary-button compact"
+              onClick={() => setShowContact((current) => !current)}
+            >
+              Entrar em contato
+            </button>
+
+            {showContact && (
+              <div className="contact-details">
+                <p><strong>Nome:</strong> {item.owner}</p>
+                <p><strong>E-mail:</strong> {item.contact}</p>
+                <p><strong>Item:</strong> {item.title}</p>
+                <p><strong>Status:</strong> {item.status}</p>
+                <p><strong>Local:</strong> {item.location}</p>
+                <p><strong>Registrado em:</strong> {item.registeredAt || item.note}</p>
+                <a className="secondary-button contact-link" href={`mailto:${item.contact}?subject=${contactSubject}&body=${contactBody}`}>
+                  Enviar e-mail
+                </a>
+              </div>
+            )}
+          </div>
 
           {canClaim ? (
             <form className="claim-box" onSubmit={onClaim}>
