@@ -779,16 +779,13 @@ function Header({ route, user, navigate }) {
             <button className={route === 'home' ? 'active' : ''} type="button" onClick={() => navigate('home')}>
               Início
             </button>
-            <button type="button" onClick={() => navigate('home')}>
-              Anúncios
-            </button>
-            <button type="button" onClick={() => navigate('my-items')}>
+            <button className={route === 'my-items' ? 'active' : ''} type="button" onClick={() => navigate('my-items')}>
               Meus Itens
             </button>
-            <button type="button" onClick={() => navigate('register-found')}>
+            <button className={route === 'register-found' ? 'active' : ''} type="button" onClick={() => navigate('register-found')}>
               Encontrado
             </button>
-            <button type="button" onClick={() => navigate('register-lost')}>
+            <button className={route === 'register-lost' ? 'active' : ''} type="button" onClick={() => navigate('register-lost')}>
               Perdido
             </button>
             <button type="button" className="icon-button" aria-label="Perfil" onClick={() => navigate('profile')}>
